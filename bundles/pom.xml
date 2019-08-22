@@ -105,6 +105,7 @@
     <module>org.openhab.binding.ihc</module>
     <module>org.openhab.binding.innogysmarthome</module>
     <module>org.openhab.binding.ipp</module>
+    <module>org.openhab.binding.ipupdater</module>
     <module>org.openhab.binding.irtrans</module>
     <module>org.openhab.binding.jeelink</module>
     <module>org.openhab.binding.keba</module>

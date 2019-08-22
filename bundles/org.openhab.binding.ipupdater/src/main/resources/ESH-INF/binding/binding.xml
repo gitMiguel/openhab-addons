@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<binding:binding id="ipupdater"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:binding="https://openhab.org/schemas/binding/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/binding/v1.0.0 https://openhab.org/schemas/binding-1.0.0.xsd">
+
+	<name>IpUpdater Binding</name>
+	<description>This binding handles ip address changes and updates them to clients</description>
+	<author>Miika Jukka</author>
+
+</binding:binding>

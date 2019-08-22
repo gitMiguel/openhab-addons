@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="ipupdater" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<!-- IpUpdater Bridge -->
+	<bridge-type id="bridge">
+		<label>IpUpdater Bridge</label>
+		<description>The IpUpdater bridge is responsible for checking current IP addresses and notify child things.</description>
+		
+		<channels>
+            <channel id="bridgeForceUpdate" typeId="bridgeForceUpdate" />
+            <channel id="ipv4address" typeId="ipv4address" />
+            <channel id="ipv6address" typeId="ipv6address" />
+        </channels>
+
+		<config-description>
+			<parameter name="ipv4server" type="text">
+				<context>network-address</context>
+				<label>IPv4 server address</label>
+				<description>Server address where to get current IPv4 address</description>
+				<required>true</required>
+				<default>http://v4.ident.me/</default>
+			</parameter>
+			<parameter name="ipv6server" type="text">
+				<context>network-address</context>
+				<label>IPv6 server address</label>
+				<description>Server address where to get current IPv6 address.</description>
+				<required>false</required>
+				<default>http://v6.ident.me/</default>
+			</parameter>
+			<parameter name="ipv6enabled" type="boolean">
+				<label>IPv6 Status</label>
+				<description>Enables on disables IPv6 functionality.</description>
+			</parameter>
+			<parameter name="updateInterval" type="integer" min="5" step="1" unit="m">
+				<label>Update Interval</label>
+				<description>Minutes between IP address checks. Minimum is 5 minutes.</description>
+				<required>true</required>
+				<default>30</default>
+			</parameter>
+		</config-description>
+	</bridge-type>
+	
+	<channel-type id="bridgeForceUpdate">
+        <item-type>Switch</item-type>
+        <label>Force update</label>
+        <description>Force an update to be sent to child things</description>
+    </channel-type>
+    
+    <channel-type id="ipv4address">
+        <item-type>String</item-type>
+        <label>Ipv4 address</label>
+        <description>Current Ipv4 address</description>
+    </channel-type>
+
+    <channel-type id="ipv6address">
+        <item-type>String</item-type>
+        <label>Ipv6 address</label>
+        <description>Current Ipv6 address</description>
+    </channel-type>
+
+</thing:thing-descriptions>
