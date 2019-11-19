@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="vallox" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0" xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<thing-type id="se-serial">
+
+		<label>Vallox SE Serial Connection</label>
+		<description>Provide connection to Vallox SE through serial port</description>
+
+		<channel-groups>
+			<channel-group id="FanControl" typeId="GroupSeFanControl" />
+			<channel-group id="Temperature" typeId="GroupSeTemperature" />
+			<channel-group id="Efficiency" typeId="GroupSeEfficiency" />
+			<channel-group id="Setting" typeId="GroupSeSetting" />
+			<channel-group id="Status" typeId="GroupSeStatus" />
+			<channel-group id="Maintenance" typeId="GroupSeMaintenance" />
+			<channel-group id="Alarm" typeId="GroupSeAlarm" />            
+		</channel-groups>
+
+		<config-description>
+			<parameter name="serialPort" type="text" required="true">
+				<label>Port</label>
+				<context>serial-port</context>
+				<description>Serial port to connect to</description>
+			</parameter>
+
+			<parameter name="panelNumber" type="integer" min="1" max="8" required="true">
+				<label>Panel number</label>
+				<description>This binding acts as control panel. Select a number for it from 1-8.</description>
+			</parameter>
+		</config-description>
+
+	</thing-type>
+</thing:thing-descriptions>
