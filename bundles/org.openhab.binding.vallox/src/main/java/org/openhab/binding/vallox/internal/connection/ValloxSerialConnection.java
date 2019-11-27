@@ -32,8 +32,6 @@ import org.openhab.binding.vallox.internal.telegram.Telegram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import gnu.io.NoSuchPortException;
-
 /**
  * The {@link ValloxSerialConnection} is responsible for creating serial connection to vallox.
  *
@@ -63,7 +61,7 @@ public class ValloxSerialConnection extends ValloxBaseConnection implements Seri
         try {
             SerialPortIdentifier portIdentifier = portManager.getIdentifier(config.serialPort);
             if (portIdentifier == null) {
-                throw new NoSuchPortException();
+                throw new IOException("No such port" + config.serialPort);
             }
             SerialPort serialPort = portIdentifier.open("vallox", SERIAL_PORT_READ_TIMEOUT);
             serialPort.setSerialPortParams(SERIAL_BAUDRATE, SerialPort.DATABITS_8, SerialPort.PARITY_NONE,
@@ -85,8 +83,6 @@ public class ValloxSerialConnection extends ValloxBaseConnection implements Seri
             serialPort.enableReceiveTimeout(SERIAL_TIMEOUT_MILLISECONDS);
             connected = true;
             logger.debug("Connected to {}", config.serialPort);
-        } catch (NoSuchPortException e) {
-            throw new IOException("No such port", e);
         } catch (TooManyListenersException e) {
             throw new IOException("Too many listeners", e);
         } catch (PortInUseException e) {

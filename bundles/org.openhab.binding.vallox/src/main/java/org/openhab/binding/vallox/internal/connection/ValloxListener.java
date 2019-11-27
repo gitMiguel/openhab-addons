@@ -16,7 +16,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.vallox.internal.telegram.Telegram;
 
 /**
- * This interface defines interface to receive data from heat pump.
+ * Interface to receive data from vallox.
  *
  * @author Miika Jukka - Initial contribution
  */
@@ -29,9 +29,7 @@ public interface ValloxListener {
     void telegramReceived(Telegram telegram);
 
     /**
-     * Receiving error.
-     *
+     * Receive error from vallox.
      */
     void errorOccurred(String error);
-
 }

@@ -123,6 +123,7 @@ public class ValloxIpConnection extends ValloxBaseConnection {
      *
      * @author Miika Jukka
      */
+    @NonNullByDefault
     private class TelegramReader extends Thread {
         boolean interrupted = false;
 

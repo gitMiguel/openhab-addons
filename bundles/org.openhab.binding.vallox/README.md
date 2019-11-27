@@ -1,11 +1,13 @@
 # Vallox Binding
 
 This binding connects to Vallox central venting units. 
+
 * Serial and tcp connections with older SE models.
 
 ## Supported Things
 
 This binding supports two different things.
+
 * SE Serial connection
 * SE TCP/IP connection
 
