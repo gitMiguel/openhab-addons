@@ -1,21 +1,19 @@
 # Vallox Binding
 
-Interface to a vallox central venting unit. Supporting serial and tcp/ip connections.
-
-Tested with
-
-* Vallox KWL 90 SE + USR-TCP232-410 RS485-to-ethernet interface
-* Vallox 110 SE R + USB-RS485 converter
+This binding connects to Vallox central venting units. 
+* Serial and tcp connections with older SE models.
 
 ## Supported Things
 
-This binding supports two different things. One for serial connection and one for tcp/ip connection.
+This binding supports two different things.
+* SE Serial connection
+* SE TCP/IP connection
 
 ## Thing Configuration
 
-Things are configurable manually or through PaperUI. Binding has following configuration parameters:
+Binding has following configuration parameters:
 
-### Serial
+### SE Serial
 
 | Parameter                     | Type    | Required | Default if omitted               | Description                             |
 | ------------------------------| ------- | -------- | -------------------------------- |-----------------------------------------|
@@ -23,7 +21,7 @@ Things are configurable manually or through PaperUI. Binding has following confi
 | `panelNumber`             | Integer |   yes     | `none`                         | Panel number to use (choose between 1-8)|
 
 
-### TCP/IP
+### SE TCP/IP
 
 | Parameter                     | Type    | Required | Default if omitted               | Description                             |
 | ------------------------------| ------- | -------- | -------------------------------- |-----------------------------------------|
@@ -33,15 +31,11 @@ Things are configurable manually or through PaperUI. Binding has following confi
 
 ## Channels
 
-The binding has following channels:
+| Channel                    | Type    | Read only | Description                             |
+| ------------------------------| ------- | -------- |-----------------------------------------|
+| `xxxx`                  | xxxx  |   xxxx     | xxxx                 |
 
-* Under construction
 
-## Features
-
-The binding currently supports the following features:
-
-* Under construction
 
 ## Examples
 
@@ -50,19 +44,19 @@ The binding currently supports the following features:
 #### TCP/IP
 
 ```
-Thing vallox.ip.main [ tcpHost="192.168.0.57", tcpPort=26, panelNumber=5 ]
+Thing vallox:se-tcp:main [ tcpHost="192.168.0.57", tcpPort=26, panelNumber=5 ]
 ```
 
 #### Serial
 
 ```
-Thing vallox.serial.main [ serialPort="/dev/ttyUSB0", panelNumber=5 ]
+Thing vallox:se-serial:main [ serialPort="/dev/ttyUSB0", panelNumber=5 ]
 ```
 
-Under Windows use normal com port names eg. "COM3":
+Under Windows use normal com port names e.g. "COM3":
 
 ```
-Thing vallox.ip.main [ serialPort="COM3", panelNumber=8 ]
+Thing vallox:se-tcp:main [ serialPort="COM3", panelNumber=8 ]
 ```
 
 ### vallox.items
@@ -126,7 +120,7 @@ Number LastErrorNumber (ValloxAdvanced) { channel="vallox:kwl90se:main:LastError
 
 ### vallox.sitemap
 
-See an example below for a sitemap that uses the vallox items. As there are quite many channels in the binding, you should use groups for main and advanced items (and maybe more). You can still address items directly.
+See an example below for a sitemap that uses the vallox items.
 
 ```
 
