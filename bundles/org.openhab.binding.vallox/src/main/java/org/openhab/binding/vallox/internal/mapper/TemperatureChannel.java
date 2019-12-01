@@ -15,7 +15,7 @@ package org.openhab.binding.vallox.internal.mapper;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.smarthome.core.library.types.DecimalType;
 import org.eclipse.smarthome.core.types.State;
-import org.openhab.binding.vallox.internal.telegram.Converter;
+import org.openhab.binding.vallox.internal.ValloxBindingConstants;
 
 /**
  * Class for temperature channels.
@@ -25,17 +25,31 @@ import org.openhab.binding.vallox.internal.telegram.Converter;
 @NonNullByDefault
 public class TemperatureChannel extends ValloxChannel {
 
+    /**
+     * Create new instance.
+     *
+     * @param variable channel as byte
+     */
     public TemperatureChannel(byte variable) {
         super(variable);
     }
 
     @Override
     public State convertToState(Byte value) {
-        return new DecimalType(Converter.temperatureToInt(value));
+        int index = Byte.toUnsignedInt(value);
+        return new DecimalType(ValloxBindingConstants.TEMPERATURE_MAPPING[index]);
     }
 
     @Override
-    public byte convertFromState(Byte value) {
-        return Converter.temperatureToByte(value);
+    public byte convertFromState(Byte state) {
+        byte value = 100;
+        for (int i = 0; i < 255; i++) {
+            byte valueFromTable = ValloxBindingConstants.TEMPERATURE_MAPPING[i];
+            if (valueFromTable >= state) {
+                value = (byte) i;
+                break;
+            }
+        }
+        return value;
     }
 }

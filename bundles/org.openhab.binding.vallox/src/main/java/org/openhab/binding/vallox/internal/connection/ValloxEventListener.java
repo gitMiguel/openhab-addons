@@ -13,23 +13,29 @@
 package org.openhab.binding.vallox.internal.connection;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.vallox.internal.telegram.Telegram;
 
 /**
- * Interface to receive data from vallox.
+ * Define methods to receive events from Vallox.
  *
  * @author Miika Jukka - Initial contribution
  */
 @NonNullByDefault
-public interface ValloxListener {
+public interface ValloxEventListener {
 
     /**
-     * Receive telegram from vallox.
+     * Receive telegram from Vallox.
+     *
+     * @param telegram received telegram
      */
     void telegramReceived(Telegram telegram);
 
     /**
-     * Receive error from vallox.
+     * Receive error from Vallox.
+     *
+     * @param error the error message
+     * @param exception the exception or null
      */
-    void errorOccurred(String error);
+    void errorOccurred(String error, @Nullable Exception exception);
 }

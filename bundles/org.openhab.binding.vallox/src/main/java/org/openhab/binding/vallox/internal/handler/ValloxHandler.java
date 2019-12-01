@@ -13,10 +13,10 @@
 package org.openhab.binding.vallox.internal.handler;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -33,17 +33,14 @@ import org.eclipse.smarthome.core.thing.ThingStatusDetail;
 import org.eclipse.smarthome.core.thing.binding.BaseThingHandler;
 import org.eclipse.smarthome.core.types.Command;
 import org.eclipse.smarthome.core.types.RefreshType;
-import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.io.transport.serial.SerialPortManager;
-import org.openhab.binding.vallox.internal.cache.CacheMap;
-import org.openhab.binding.vallox.internal.cache.CacheObject;
+import org.openhab.binding.vallox.internal.cache.ValloxExpiringCacheMap;
 import org.openhab.binding.vallox.internal.configuration.ValloxConfiguration;
-import org.openhab.binding.vallox.internal.connection.ConnectionFactory;
-import org.openhab.binding.vallox.internal.connection.ValloxConnection;
-import org.openhab.binding.vallox.internal.connection.ValloxListener;
+import org.openhab.binding.vallox.internal.connection.ConnectorFactory;
+import org.openhab.binding.vallox.internal.connection.ValloxConnector;
+import org.openhab.binding.vallox.internal.connection.ValloxEventListener;
 import org.openhab.binding.vallox.internal.mapper.ChannelMapper;
 import org.openhab.binding.vallox.internal.mapper.ValloxChannel;
-import org.openhab.binding.vallox.internal.telegram.Parser;
 import org.openhab.binding.vallox.internal.telegram.Telegram;
 import org.openhab.binding.vallox.internal.telegram.TelegramFactory;
 import org.slf4j.Logger;
@@ -57,27 +54,24 @@ import org.slf4j.LoggerFactory;
  * @author Miika Jukka - Rewrite
  */
 @NonNullByDefault
-public class ValloxHandler extends BaseThingHandler implements ValloxListener {
+public class ValloxHandler extends BaseThingHandler implements ValloxEventListener {
 
     private final Logger logger = LoggerFactory.getLogger(ValloxHandler.class);
 
-    private final CacheMap cache = new CacheMap();
-    private @Nullable ValloxConnection connection;
-    private ValloxConfiguration config;
-    private @Nullable ScheduledFuture<?> pollingJob;
-    private @Nullable ScheduledFuture<?> watchDog;
-    private boolean reconnect = false;
+    private final ValloxExpiringCacheMap cache = new ValloxExpiringCacheMap(Duration.ofMinutes(1));
+    private @NonNullByDefault({}) ValloxConnector connection;
+    private @NonNullByDefault({}) ScheduledFuture<?> refreshJob;
+    private @NonNullByDefault({}) ScheduledFuture<?> watchDog;
     private SerialPortManager portManager;
+    private boolean reconnect = false;
+    private byte panelNumber;
 
     public ValloxHandler(Thing thing, SerialPortManager portManager) {
         super(thing);
-        config = getConfigAs(ValloxConfiguration.class);
         this.portManager = portManager;
     }
 
-    /**
-     * Dispose binding
-     */
+    @SuppressWarnings("null")
     @Override
     public void dispose() {
         logger.debug("Disposing vallox");
@@ -85,24 +79,17 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
             watchDog.cancel(true);
             watchDog = null;
         }
-        if (pollingJob != null) {
-            pollingJob.cancel(true);
-            pollingJob = null;
-        }
         closeConnection();
     }
 
-    /**
-     * Initialize binding
-     */
+    @SuppressWarnings("null")
     @Override
     public void initialize() {
-        logger.debug("Initializing Vallox SE binding");
+        logger.debug("Initializing Vallox SE handler");
         updateStatus(ThingStatus.UNKNOWN);
         cache.clear();
         try {
-            this.connection = ConnectionFactory.getConnector(thing.getThingTypeUID(), portManager);
-            this.config = getConfigAs(ValloxConfiguration.class);
+            this.connection = ConnectorFactory.getConnector(thing.getThingTypeUID(), portManager, scheduler);
         } catch (Exception ex) {
             String message = "Failed to initialize: ";
             logger.debug(message, ex);
@@ -110,29 +97,34 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
             return;
         }
         if (watchDog == null || watchDog.isCancelled()) {
-            watchDog = scheduler.scheduleWithFixedDelay(() -> {
-                if (reconnect) {
-                    reconnect = false;
-                    closeConnection();
-                }
-                connect();
-            }, 0, 10, TimeUnit.SECONDS);
+            watchDog = scheduler.scheduleWithFixedDelay(this.checkConnection, 0, 10, TimeUnit.SECONDS);
         }
-        startPollingJob();
     }
 
+    /**
+     * Connect to Vallox using the connection received from {@link ConnectorFactory}.
+     * Start refresher only after successful connection.
+     */
     @SuppressWarnings("null")
     private void connect() {
         if (!isConnected()) {
-            updateStatus(ThingStatus.UNKNOWN);
-            logger.debug("Connecting to Vallox");
             try {
+                ValloxConfiguration config = getConfigAs(ValloxConfiguration.class);
+                this.panelNumber = config.getPanelAsByte();
                 connection.addListener(this);
                 connection.connect(config);
+                if (refreshJob == null || refreshJob.isCancelled()) {
+                    refreshJob = scheduler.scheduleWithFixedDelay(this.refreshChannels, 1, 1, TimeUnit.MINUTES);
+                }
                 updateStatus(ThingStatus.ONLINE);
             } catch (IOException e) {
-                logger.debug("Connection failed: {}", e.getMessage());
+                if (logger.isTraceEnabled()) {
+                    logger.debug("Connection failed", e);
+                } else {
+                    logger.debug("Connection failed -> {}", e.getMessage());
+                }
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+                reconnect = true;
             }
         } else {
             logger.trace("Connection already open");
@@ -142,15 +134,20 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
     @SuppressWarnings("null")
     private void closeConnection() {
         logger.debug("Closing connection");
-        if (isConnected()) {
+        if (connection != null) {
             connection.removeListener(this);
             connection.close();
+        }
+        if (refreshJob != null) {
+            refreshJob.cancel(true);
+            refreshJob = null;
         }
     }
 
     /**
      * Check if connection is initialized and open
      */
+    @SuppressWarnings("null")
     private boolean isConnected() {
         if (connection != null) {
             if (connection.isConnected()) {
@@ -160,20 +157,17 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
         return false;
     }
 
-    /**
-     * Handle received commands
-     */
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (this.thing.getStatus() == ThingStatus.ONLINE && isConnected()) {
             String channelID = channelUID.getId();
-            Byte channelVar = ChannelMapper.getVariable(channelID);
+            Byte channelAsByte = ChannelMapper.getVariable(channelID);
             if (command instanceof RefreshType) {
-                handleRefreshTypeCommand(command, channelID, channelVar);
+                handleRefreshTypeCommand(command, channelID, channelAsByte);
             } else if (command instanceof DecimalType) {
-                handleDecimalCommand((DecimalType) command, channelID, channelVar);
+                handleDecimalCommand((DecimalType) command, channelID, channelAsByte);
             } else if (command instanceof OnOffType) {
-                handleOnOffCommand(command, channelID, channelVar);
+                handleOnOffCommand(command, channelID, channelAsByte);
             } else {
                 logger.debug("Unsupported command '{}'", command);
             }
@@ -181,15 +175,19 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
     }
 
     /**
-     * Handle refresh type command. CO2 value and setpoint are 16bit values.
-     * High and low bytes are handled separately
+     * Handle refresh type command. CO2 value and set point are 16bit values and high and low bytes are handled
+     * separately.
+     * Check if channel value is cached and return it if not expired.
+     *
+     * @param command the command to send
+     * @param channelID the channel where the command is sent
+     * @param channelAsByte the channel as byte value
      */
-    private void handleRefreshTypeCommand(Command command, String channelID, Byte channelVar) {
-
-        if (cache.contains(channelVar) && !cache.isExpired(channelVar)) {
+    private void handleRefreshTypeCommand(Command command, String channelID, Byte channelAsByte) {
+        if (cache.isValid(channelAsByte)) {
             logger.debug("Cache hasn't expired yet. Updating state with cached value for channel: {}", channelID);
             ValloxChannel valloxChannel = ChannelMapper.getValloxChannel(channelID);
-            updateState(channelID, valloxChannel.convertToState(cache.getValue(channelVar)));
+            updateState(channelID, valloxChannel.convertToState(cache.getValue(channelAsByte)));
             return;
         } else if (channelID.equals("Setting#CO2SetPoint")) {
             sendPoll(ChannelMapper.getVariable("Setting#CO2SetPointHigh"));
@@ -198,25 +196,27 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
             sendPoll(ChannelMapper.getVariable("Status#CO2High"));
             sendPoll(ChannelMapper.getVariable("Status#CO2Low"));
         } else {
-            sendPoll(channelVar);
+            sendPoll(channelAsByte);
         }
     }
 
     /**
      * Handle OnOff type commands
+     *
+     * @param command the command to send
+     * @param channelID the channel where the command is sent
+     * @param channelAsByte the channel as byte value
      */
-    private void handleOnOffCommand(Command command, String channelID, Byte channelVar) {
-
-        String superChannel = ChannelMapper.getChannelForVariable(channelVar);
-
-        if (!cache.contains(channelVar)) {
+    private void handleOnOffCommand(Command command, String channelID, Byte channelAsByte) {
+        String parentChannel = ChannelMapper.getChannelForVariable(channelAsByte);
+        if (!cache.containsKey(channelAsByte)) {
             logger.debug("Couldn't handle OnOff command because cache doesn't contain any value for channel '{}'",
-                    superChannel);
+                    parentChannel);
             return;
         }
-        byte cachedValue = cache.getValue(channelVar);
+        byte cachedValue = cache.getValue(channelAsByte);
         BitSet bits = BitSet.valueOf(new byte[] { cachedValue });
-        switch (superChannel) {
+        switch (parentChannel) {
             case "select":
                 switch (channelID) {
                     // send the first 4 bits of the Select byte; others are read only
@@ -243,7 +243,7 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
                         bits.set(0, (command == OnOffType.ON) ? true : false);
                         break;
                     default:
-                        logger.debug("Unsupported OnOff type channel '{}' with superchannel 'select'", channelID);
+                        logger.debug("Unsupported OnOff type channel '{}' with parentChannel 'select'", channelID);
                         return;
                 }
                 break;
@@ -281,7 +281,7 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
                         bits.set(3, aim.get(3));
                         break;
                     default:
-                        logger.debug("Unsupported OnOff type channel '{}' with superchannel 'program1'", channelID);
+                        logger.debug("Unsupported OnOff type channel '{}' with parentChannel 'program1'", channelID);
                         return;
                 }
                 break;
@@ -301,7 +301,7 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
                         bits.set(7, (command == OnOffType.ON) ? true : false);
                         break;
                     default:
-                        logger.debug("Unsupported OnOff type channel '{}' with superchannel 'flags5'", channelID);
+                        logger.debug("Unsupported OnOff type channel '{}' with parentChannel 'flags5'", channelID);
                         return;
                 }
                 break;
@@ -321,7 +321,7 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
                         bits.set(0, (command == OnOffType.ON) ? true : false);
                         break;
                     default:
-                        logger.debug("Unsupported OnOff type channel '{}' with superchannel 'program2'", channelID);
+                        logger.debug("Unsupported OnOff type channel '{}' with parentChannel 'program2'", channelID);
                         return;
                 }
                 break;
@@ -332,15 +332,18 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
         // Ensure that byte array length is always 8 even if all bits are 0.
         byte[] cmd = Arrays.copyOf(bits.toByteArray(), 8);
         if (cmd != null) {
-            sendCommand(channelVar, cmd[0]);
+            sendCommand(channelAsByte, cmd[0]);
         }
     }
 
     /**
-     * Handle decimal type commands
+     * Handle decimal type commands. CO2 set point is 16bit values and high and low bytes are handled separately.
+     *
+     * @param command the command to send
+     * @param channelID the channel where the command is sent
+     * @param channelAsByte the channel as byte value
      */
-    private void handleDecimalCommand(DecimalType command, String channelID, Byte channelVar) {
-
+    private void handleDecimalCommand(DecimalType command, String channelID, Byte channelAsByte) {
         if (channelID.equals("Setting#CO2SetPoint")) {
             int commandValue = command.intValue();
             byte lowByte = (byte) (commandValue & 0xFF);
@@ -350,11 +353,11 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
             return;
         }
         if (channelID.equals("Setting#AdjustmentIntervalMinutes")) {
-            handleOnOffCommand(command, channelID, channelVar);
+            handleOnOffCommand(command, channelID, channelAsByte);
             return;
         }
         ValloxChannel valloxChannel = ChannelMapper.getValloxChannel(channelID);
-        sendCommand(channelVar, valloxChannel.convertFromState(command.byteValue()));
+        sendCommand(channelAsByte, valloxChannel.convertFromState(command.byteValue()));
     }
 
     /**
@@ -366,49 +369,61 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
     }
 
     /**
+     * Check if reconnection is requested and verify connection is still alive.
+     */
+    Runnable checkConnection = () -> {
+        if (reconnect) {
+            reconnect = false;
+            closeConnection();
+        }
+        connect();
+    };
+
+    /**
      * Ensure that all linked channels have been polled at least once and has a value.
      * OnOffType or DecimalType commands needs a cached value.
      */
-    public void startPollingJob() {
-        pollingJob = scheduler.scheduleWithFixedDelay(new Runnable() {
-            @Override
-            public void run() {
-                if (isConnected()) {
-                    try {
-                        logger.debug("Vallox heartbeat");
-                        for (String channel : linkedChannels()) {
-                            Byte channelVar = ChannelMapper.getVariable(channel);
-                            if (channelVar != 00 && (!cache.contains(channelVar) || cache.isExpired(channelVar))) {
-                                sendPoll(channelVar);
-                                logger.debug("Refreshing channel: {}", channel);
-                            }
-                        }
-                    } catch (Exception ex) {
-                        logger.error("Exception sending heartbeat poll: ", ex);
-                        Thread.currentThread().interrupt();
-                        reconnect = true;
+    Runnable refreshChannels = () -> {
+        if (isConnected()) {
+            try {
+                for (String channel : linkedChannels()) {
+                    Byte channelAsByte = ChannelMapper.getVariable(channel);
+                    if (channelAsByte != 00 && cache.isExpired(channelAsByte)) {
+                        sendPoll(channelAsByte);
+                        logger.debug("Refreshing channel: {}", channel);
                     }
                 }
+            } catch (Exception ex) {
+                logger.error("Exception sending heartbeat poll: ", ex);
+                Thread.currentThread().interrupt();
+                reconnect = true;
             }
-        }, 1, 1, TimeUnit.MINUTES);
+        }
+    };
+
+    /**
+     * Forward poll telegram to connection handler.
+     *
+     * @param channel the channel to be polled
+     */
+    @SuppressWarnings("null")
+    public void sendPoll(byte channel) {
+        if (connection != null) {
+            connection.sendTelegram(TelegramFactory.createPoll(panelNumber, channel));
+        }
     }
 
     /**
-     * Send poll telegram to connection handler.
+     * Forward command telegram to connection handler.
+     *
+     * @param channel the channel which the command is sent to
+     * @param value the command to send
      */
     @SuppressWarnings("null")
-    public void sendPoll(byte channelVar) {
-        Telegram telegram = TelegramFactory.createPoll(config.panelNumber, channelVar);
-        connection.sendTelegram(telegram);
-    }
-
-    /**
-     * Send command telegram to connection handler.
-     */
-    @SuppressWarnings("null")
-    public void sendCommand(byte variable, byte value) {
-        Telegram telegram = TelegramFactory.createCommand(config.panelNumber, variable, value);
-        connection.sendCommand(telegram);
+    public void sendCommand(byte channel, byte value) {
+        if (connection != null) {
+            connection.sendTelegram(TelegramFactory.createCommand(panelNumber, channel, value));
+        }
     }
 
     /**
@@ -416,18 +431,17 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
      */
     @Override
     public void telegramReceived(Telegram telegram) {
-        if (logger.isTraceEnabled()) {
-            logger.trace("{} {}", telegram.stateDetails(), telegram.toString());
-        }
         switch (telegram.state) {
             case ACK:
                 logger.debug("Received ack byte '{}'", telegram.toString());
                 break;
             case OK:
-                String channelID = ChannelMapper.getChannelForVariable(telegram.bytes[3]);
-                cache.put(telegram.bytes[3], new CacheObject(telegram.bytes[4]));
-                Map<String, State> channelsToUpdate = Parser.process(channelID, telegram.bytes[4], cache);
-                channelsToUpdate.forEach((channel, state) -> {
+                if (logger.isTraceEnabled()) {
+                    logger.trace("{} {}", telegram.stateDetails(), telegram.toString());
+                }
+                String channelID = ChannelMapper.getChannelForVariable(telegram.getVariable());
+                cache.put(telegram);
+                telegram.parse(channelID, cache).forEach((channel, state) -> {
                     updateState(channel, state);
                 });
                 break;
@@ -439,10 +453,10 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
                 logger.debug("{} {}", telegram.stateDetails(), telegram.toString());
                 break;
             case RESUME:
-                // TODO
+                logger.debug("Resuming normal traffic");
                 break;
             case SUSPEND:
-                // TODO
+                logger.debug("Suspending traffic while CO2 sensors are read");
                 break;
             default:
                 logger.debug("Unknown telegram received");
@@ -450,12 +464,12 @@ public class ValloxHandler extends BaseThingHandler implements ValloxListener {
         }
     }
 
-    /**
-     * Handle error received from connection handler
-     */
     @Override
-    public void errorOccurred(String error) {
-        logger.debug("Error '{}' occurred, reconnecting", error);
+    public void errorOccurred(String error, @Nullable Exception exception) {
+        if (exception != null && logger.isTraceEnabled()) {
+            logger.trace("{}", error, exception);
+        }
+        logger.debug("Reconnecting after error: {}", error);
         reconnect = true;
         updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, error);
     }

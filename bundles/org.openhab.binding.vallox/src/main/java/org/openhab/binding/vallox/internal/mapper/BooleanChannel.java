@@ -18,7 +18,8 @@ import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.types.State;
 
 /**
- * Class for ON/OFF channels.
+ * Class for ON/OFF channels. The BooleanChannel always has a parent channel. It gets its value using the bit mask from
+ * parent channels byte value. Parent channel can have a maximum of 8 childs.
  *
  * @author Miika Jukka - Initial contribution
  */
@@ -26,36 +27,46 @@ import org.eclipse.smarthome.core.types.State;
 public class BooleanChannel extends ValloxChannel {
 
     public byte bitMask;
-    public String superChannel;
+    public String parentChannel;
 
-    public BooleanChannel(byte bitMask, String superChannel) {
+    /**
+     * Create new instance.
+     *
+     * @param bitMask the bit mask
+     * @param parentChannel the parent channel
+     */
+    public BooleanChannel(byte bitMask, String parentChannel) {
         this.bitMask = bitMask;
-        this.superChannel = superChannel;
+        this.parentChannel = parentChannel;
     }
 
     @Override
-    public String getSuperChannel() {
-        return superChannel;
+    public String getParentChannel() {
+        return parentChannel;
     }
 
+    /**
+     * Get bit mask
+     *
+     * @return the bit mask
+     */
     public byte getMask() {
         return bitMask;
     }
 
     @Override
     public byte getVariable() {
-        return ChannelMapper.getVariable(superChannel);
+        return ChannelMapper.getVariable(parentChannel);
     }
 
     @Override
     public State convertToState(Byte value) {
-        boolean on = ((value & bitMask) != 0);
-        State result = on ? OnOffType.ON : OnOffType.OFF;
+        State result = (value & bitMask) != 0 ? OnOffType.ON : OnOffType.OFF;
         return result;
     }
 
     /**
-     * Class for channel holding adjustment interval value
+     * Class for adjustment interval channel
      *
      * @author Miika Jukka - Initial contributor
      */
@@ -63,18 +74,24 @@ public class BooleanChannel extends ValloxChannel {
     @NonNullByDefault
     public static class AdjustmentInterval extends BooleanChannel {
 
-        public AdjustmentInterval(byte bitMask, String superChannel) {
-            super(bitMask, superChannel);
+        /**
+         * Create new instance.
+         *
+         * @param bitMask the bit mask
+         * @param parentChannel the parent channel
+         */
+        public AdjustmentInterval(byte bitMask, String parentChannel) {
+            super(bitMask, parentChannel);
         }
 
         @Override
         public byte getVariable() {
-            return ChannelMapper.getVariable(superChannel);
+            return ChannelMapper.getVariable(parentChannel);
         }
 
         @Override
-        public String getSuperChannel() {
-            return superChannel;
+        public String getParentChannel() {
+            return parentChannel;
         }
 
         @Override

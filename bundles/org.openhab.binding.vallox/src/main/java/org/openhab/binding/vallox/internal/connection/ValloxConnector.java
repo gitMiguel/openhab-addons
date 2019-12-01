@@ -19,48 +19,49 @@ import org.openhab.binding.vallox.internal.configuration.ValloxConfiguration;
 import org.openhab.binding.vallox.internal.telegram.Telegram;
 
 /**
- * The {@link ValloxConnection} is responsible for creating connection to vallox.
+ * This interface defines methods for communication with Vallox.
  *
  * @author Miika Jukka - Initial contribution
  */
 @NonNullByDefault
-public interface ValloxConnection {
+public interface ValloxConnector {
 
     /**
      * Connect to vallox.
+     *
+     * @param config Vallox configuration
+     * @throws IOException if connection fails
      **/
-    public void connect(ValloxConfiguration config) throws IOException;
+    void connect(ValloxConfiguration config) throws IOException;
 
     /**
      * Return true if connected.
      */
-    public boolean isConnected();
+    boolean isConnected();
 
     /**
      * Closes the connection.
      **/
-    public void close();
+    void close();
 
     /**
-     * Add listener
-     */
-    public void addListener(ValloxListener listener);
-
-    /**
-     * Remove listener
-     */
-    public void removeListener(ValloxListener listener);
-
-    /**
-     * send Telegram
-     */
-    public void sendTelegram(Telegram telegram);
-
-    /**
-     * Send command
+     * Add listener.
      *
-     * @throws InterruptedException
+     * @param listener the listener to add
      */
-    public void sendCommand(Telegram telegram);
+    void addListener(ValloxEventListener listener);
 
+    /**
+     * Remove listener.
+     *
+     * @param listener the listener to remove
+     */
+    void removeListener(ValloxEventListener listener);
+
+    /**
+     * Put telegram to send queue.
+     *
+     * @param telegram the telegram
+     */
+    void sendTelegram(Telegram telegram);
 }

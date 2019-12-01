@@ -368,12 +368,7 @@
 		<item-type>Switch</item-type>
 		<label>Radiator type</label>
 		<description>Radiator type. OFF=Electric, ON=Water</description>
-		<state readOnly="false">
-			<options>
-				<option value="OFF">Electric</option>
-				<option value="ON">Water</option>
-			</options>
-		</state>
+		<state readOnly="false"></state>
 	</channel-type>
 
 	<channel-type id="SeCascadeAdjust" advanced="true">

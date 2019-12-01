@@ -33,10 +33,10 @@ import org.osgi.service.component.annotations.Reference;
 
 /**
  * The {@link ValloxHandlerFactory} is responsible for creating things and thing
- * handlers.
+ * handlers for Vallox binding.
  *
  * @author Hauke Fuhrmann - Initial contribution
- * @author Miika Jukka - Added serial thing
+ * @author Miika Jukka - Add support for serial connection
  */
 @NonNullByDefault
 @Component(service = ThingHandlerFactory.class, configurationPid = "binding.vallox")

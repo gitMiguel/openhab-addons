@@ -17,18 +17,25 @@ import org.openhab.binding.vallox.internal.ValloxBindingConstants;
 import org.openhab.binding.vallox.internal.telegram.Telegram.TelegramState;
 
 /**
- * The {@link TelegramFactory} creates telegram to send.
+ * The {@link TelegramFactory} creates telegrams to send.
  *
  * @author Miika Jukka - Initial contribution
  */
 @NonNullByDefault
 public class TelegramFactory {
 
-    public static Telegram createPoll(int panelNumber, byte variable) {
+    /**
+     * Create poll telegram
+     *
+     * @param panelNumber the panel number
+     * @param variable the channel to poll
+     * @return the created telegram
+     */
+    public static Telegram createPoll(byte panelNumber, byte variable) {
         byte[] telegram = new byte[ValloxBindingConstants.TELEGRAM_LENGTH];
 
         telegram[0] = ValloxBindingConstants.DOMAIN;
-        telegram[1] = Converter.panelNumberToByte(panelNumber);
+        telegram[1] = panelNumber;
         telegram[2] = ValloxBindingConstants.ADDRESS_MASTER;
         telegram[3] = ValloxBindingConstants.POLL_BYTE;
         telegram[4] = variable;
@@ -37,11 +44,19 @@ public class TelegramFactory {
         return new Telegram(TelegramState.POLL, telegram);
     }
 
-    public static Telegram createCommand(int panelNumber, byte variable, byte value) {
+    /**
+     * Create command telegram
+     *
+     * @param panelNumber the panel number
+     * @param variable the channel to send command to
+     * @param value the value to send to channel
+     * @return the created telegram
+     */
+    public static Telegram createCommand(byte panelNumber, byte variable, byte value) {
         byte[] telegram = new byte[ValloxBindingConstants.TELEGRAM_LENGTH];
 
         telegram[0] = ValloxBindingConstants.DOMAIN;
-        telegram[1] = Converter.panelNumberToByte(panelNumber);
+        telegram[1] = panelNumber;
         telegram[2] = ValloxBindingConstants.ADDRESS_MASTER;
         telegram[3] = variable;
         telegram[4] = value;
@@ -53,14 +68,25 @@ public class TelegramFactory {
     /**
      * Calculate checksum for telegram
      *
-     * @param pTelegram
-     * @return calculated checksum
+     * @param telegram the telegram to calculate checksum from
+     * @return checksum the calculated checksum
      */
-    static byte calculateChecksum(byte[] pTelegram) {
+    static byte calculateChecksum(byte[] telegram) {
         int checksum = 0;
-        for (byte i = 0; i < pTelegram.length - 1; i++) {
-            checksum += pTelegram[i];
+        for (byte i = 0; i < telegram.length - 1; i++) {
+            checksum += telegram[i];
         }
         return (byte) (checksum % 256);
+    }
+
+    /**
+     * Validate telegrams checksum
+     *
+     * @param telegram the telegram to validate
+     * @param checksum the checksum to compare to
+     * @return true if checksums match
+     */
+    public static boolean isChecksumValid(byte[] telegram, byte checksum) {
+        return calculateChecksum(telegram) == checksum;
     }
 }

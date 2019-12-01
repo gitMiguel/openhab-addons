@@ -15,16 +15,20 @@ package org.openhab.binding.vallox.internal.mapper;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.smarthome.core.library.types.DecimalType;
 import org.eclipse.smarthome.core.types.State;
-import org.openhab.binding.vallox.internal.telegram.Converter;
 
 /**
- * Class for channels holding integer values
+ * Class for channels holding integer values.
  *
  * @author Miika Jukka - Initial contribution
  */
 @NonNullByDefault
 public class IntegerChannel extends ValloxChannel {
 
+    /**
+     * Create new instance.
+     *
+     * @param variable channel as byte
+     */
     public IntegerChannel(byte variable) {
         super(variable);
     }
@@ -39,7 +43,7 @@ public class IntegerChannel extends ValloxChannel {
     }
 
     /**
-     * Class for channels holding humidity values
+     * Class for channels holding humidity values.
      *
      * @author Miika Jukka - Initial contributor
      */
@@ -47,18 +51,26 @@ public class IntegerChannel extends ValloxChannel {
     @NonNullByDefault
     public static class Humidity extends IntegerChannel {
 
+        /**
+         * Create new instance.
+         *
+         * @param variable channel as byte
+         */
         public Humidity(byte variable) {
             super(variable);
         }
 
         @Override
         public State convertToState(Byte value) {
-            return new DecimalType(Converter.humidityToInt(value));
+            int index = Byte.toUnsignedInt(value);
+            return new DecimalType((index - 51) / 2.04);
         }
 
         @Override
         public byte convertFromState(Byte value) {
-            return Converter.humidityToByte(value);
+            double index = value * 2.04;
+            index += 51;
+            return (byte) Math.round(index);
         }
 
     }

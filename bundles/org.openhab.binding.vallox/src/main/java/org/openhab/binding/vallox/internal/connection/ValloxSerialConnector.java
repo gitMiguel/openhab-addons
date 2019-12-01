@@ -16,7 +16,11 @@ import static org.openhab.binding.vallox.internal.ValloxBindingConstants.*;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.TooManyListenersException;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ScheduledExecutorService;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -27,49 +31,57 @@ import org.eclipse.smarthome.io.transport.serial.SerialPortEventListener;
 import org.eclipse.smarthome.io.transport.serial.SerialPortIdentifier;
 import org.eclipse.smarthome.io.transport.serial.SerialPortManager;
 import org.eclipse.smarthome.io.transport.serial.UnsupportedCommOperationException;
+import org.openhab.binding.vallox.internal.ValloxBindingConstants;
 import org.openhab.binding.vallox.internal.configuration.ValloxConfiguration;
 import org.openhab.binding.vallox.internal.telegram.Telegram;
+import org.openhab.binding.vallox.internal.telegram.Telegram.TelegramState;
+import org.openhab.binding.vallox.internal.telegram.TelegramFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The {@link ValloxSerialConnection} is responsible for creating serial connection to vallox.
+ * The {@link ValloxSerialConnector} is responsible for creating serial connection to vallox.
  *
  * @author Miika Jukka - Initial contribution
  */
 @NonNullByDefault
-public class ValloxSerialConnection extends ValloxBaseConnection implements SerialPortEventListener {
+public class ValloxSerialConnector extends ValloxBaseConnector implements SerialPortEventListener {
 
-    private final Logger logger = LoggerFactory.getLogger(ValloxSerialConnection.class);
+    private final Logger logger = LoggerFactory.getLogger(ValloxSerialConnector.class);
 
-    private @Nullable BufferedInputStream inputStream;
     private @Nullable SerialPort serialPort;
-    private SerialPortManager portManager;
-    private final byte[] buffer = new byte[1024]; // 1K
 
-    public ValloxSerialConnection(SerialPortManager portManager) {
-        this.portManager = portManager;
-        logger.debug("Vallox serial connection initialized");
+    public ValloxSerialConnector(SerialPortManager portManager, ScheduledExecutorService scheduler) {
+        super(portManager, scheduler);
+        logger.debug("Serial connection initialized");
     }
 
+    @SuppressWarnings("null")
     @Override
     public void connect(ValloxConfiguration config) throws IOException {
         if (isConnected()) {
             return;
         }
-        logger.debug("Connecting to serial port: {}", config.serialPort);
         try {
-            SerialPortIdentifier portIdentifier = portManager.getIdentifier(config.serialPort);
-            if (portIdentifier == null) {
-                throw new IOException("No such port" + config.serialPort);
+
+            if (portManager == null) {
+                throw new IOException("PortManager is null");
             }
-            SerialPort serialPort = portIdentifier.open("vallox", SERIAL_PORT_READ_TIMEOUT);
+            SerialPortIdentifier portIdentifier = portManager.getIdentifier(config.serialPort);
+
+            if (portIdentifier == null) {
+                throw new IOException("No such port " + config.serialPort);
+            }
+
+            this.serialPort = portIdentifier.open("vallox", SERIAL_PORT_READ_TIMEOUT);
             serialPort.setSerialPortParams(SERIAL_BAUDRATE, SerialPort.DATABITS_8, SerialPort.PARITY_NONE,
                     SerialPort.STOPBITS_1);
 
             logger.trace("Serial port {} opened", config.serialPort);
 
             inputStream = new BufferedInputStream(serialPort.getInputStream());
+            panelNumber = config.getPanelAsByte();
+            connected = true;
 
             serialPort.addEventListener(this);
 
@@ -81,24 +93,27 @@ public class ValloxSerialConnection extends ValloxBaseConnection implements Seri
 
             serialPort.enableReceiveThreshold(SERIAL_TIMEOUT_MILLISECONDS);
             serialPort.enableReceiveTimeout(SERIAL_TIMEOUT_MILLISECONDS);
-            connected = true;
+
+            serialPort.setRTS(true);
             logger.debug("Connected to {}", config.serialPort);
         } catch (TooManyListenersException e) {
             throw new IOException("Too many listeners", e);
         } catch (PortInUseException e) {
             throw new IOException("Port in use", e);
         } catch (UnsupportedCommOperationException | IOException e) {
-            throw new IOException("Unsupported com operation: {}" + e.getMessage(), e);
+            throw new IOException("Unsupported com operation -> " + e.getMessage(), e);
         }
     }
 
     /**
-     * Closes the serial port and release OS resources.
+     * Closes the serial port.
      */
     @SuppressWarnings("null")
     @Override
     public void close() {
+        super.close();
         connected = false;
+        serialPort.setRTS(false);
         if (serialPort != null) {
             serialPort.removeEventListener();
             try {
@@ -121,7 +136,7 @@ public class ValloxSerialConnection extends ValloxBaseConnection implements Seri
             return;
         }
         if (logger.isTraceEnabled() && SerialPortEvent.DATA_AVAILABLE != seEvent.getEventType()) {
-            logger.trace("Serial event: {}, new value:{}", seEvent.getEventType(), seEvent.getNewValue());
+            logger.trace("Serial event: {}, value:{}", seEvent.getEventType(), seEvent.getNewValue());
         }
         try {
             switch (seEvent.getEventType()) {
@@ -129,16 +144,16 @@ public class ValloxSerialConnection extends ValloxBaseConnection implements Seri
                     handleDataAvailable();
                     break;
                 case SerialPortEvent.BI:
-                    sendErrorToListeners("Break interrupt " + seEvent.toString());
+                    sendErrorToListeners("Break interrupt " + seEvent.toString(), null);
                     break;
                 case SerialPortEvent.FE:
-                    sendErrorToListeners("Frame error " + seEvent.toString());
+                    sendErrorToListeners("Frame error " + seEvent.toString(), null);
                     break;
                 case SerialPortEvent.OE:
-                    sendErrorToListeners("Overrun error " + seEvent.toString());
+                    sendErrorToListeners("Overrun error " + seEvent.toString(), null);
                     break;
                 case SerialPortEvent.PE:
-                    sendErrorToListeners("Parity error " + seEvent.toString());
+                    sendErrorToListeners("Parity error " + seEvent.toString(), null);
                     break;
                 default: // do nothing
             }
@@ -148,44 +163,86 @@ public class ValloxSerialConnection extends ValloxBaseConnection implements Seri
     }
 
     /**
-     * Handles available data
+     * Read available data from input stream if its not null
      */
-    protected void handleDataAvailable() {
+    @SuppressWarnings("null")
+    private void handleDataAvailable() {
         try {
-            BufferedInputStream localInputStream = inputStream;
-
-            if (localInputStream != null) {
-                int bytesAvailable = localInputStream.available();
-                while (bytesAvailable > 0) {
-                    int bytesAvailableRead = localInputStream.read(buffer, 0, Math.min(bytesAvailable, buffer.length));
-
-                    if (connected && bytesAvailableRead > 0) {
-                        // dsmrConnectorListener.handleData(buffer, bytesAvailableRead);
-                        // sendTelegramToListeners(buffer);
-                        logger.debug("Expected bytes {}, read bytes {}", bytesAvailable, bytesAvailableRead);
-                    } else {
-                        logger.debug("Expected bytes {} to read, but {} bytes were read", bytesAvailable,
-                                bytesAvailableRead);
-                    }
-                    bytesAvailable = localInputStream.available();
+            if (inputStream != null) {
+                byte[] buffer = new byte[1024];
+                int available = inputStream.available();
+                int i = 0;
+                while (inputStream.read() != -1) {
+                    buffer[i] = (byte) inputStream.read();
+                    i++;
                 }
+                logger.debug("Bytes available: {}, Bytes read: {}", available, i);
+                handleBuffer(buffer);
             }
-
         } catch (IOException e) {
             logger.debug("Exception while handling available data ", e);
         }
     }
 
-    @Override
-    public void sendTelegram(Telegram telegram) {
-        // TODO Auto-generated method stub
+    /**
+     * Parse byte buffer into telegrams. Separate single acknowledged and false bytes from buffer,
+     * and after that pass next 6 bytes to telegram creation.
+     *
+     * @param buffer byte array to parse into telegrams
+     */
+    private void handleBuffer(byte[] buffer) {
+        List<Byte> skipped = new CopyOnWriteArrayList<>();
+        int bytesRead = 0;
 
+        for (int i = 0; i < buffer.length; i++) {
+            byte b = buffer[i];
+
+            if (bytesRead > i) {
+                continue;
+            }
+            if (waitForAckByte) {
+                ackByte = b;
+                waitForAckByte = false;
+                continue;
+            }
+            if (b != ValloxBindingConstants.DOMAIN) {
+                skipped.add(b);
+                continue;
+            }
+            byte[] localBuffer = Arrays.copyOfRange(buffer, i, i + 6);
+            bytesRead = i + 6;
+            createTelegramForListeners(localBuffer);
+        }
+        if (!skipped.isEmpty()) {
+            logger.debug("Skipped bytes: {}", skipped.size());
+        }
     }
 
-    @Override
-    public void sendCommand(Telegram telegram) {
-        // TODO Auto-generated method stub
-
+    /**
+     * Form a telegram from bytes and send it to listeners.
+     *
+     * @param buffer the byte buffer to handle
+     */
+    private void createTelegramForListeners(byte[] buffer) {
+        if (!TelegramFactory.isChecksumValid(buffer, buffer[5])) {
+            sendTelegramToListeners(new Telegram(TelegramState.CRC_ERROR, buffer));
+            return;
+        }
+        if (buffer[3] == ValloxBindingConstants.SUSPEND_BYTE) {
+            sendTelegramToListeners(new Telegram(TelegramState.SUSPEND));
+            suspendTraffic = true;
+            return;
+        }
+        if (buffer[3] == ValloxBindingConstants.RESUME_BYTE) {
+            sendTelegramToListeners(new Telegram(TelegramState.RESUME));
+            suspendTraffic = false;
+            return;
+        }
+        if (buffer[2] == panelNumber || buffer[2] == ValloxBindingConstants.ADDRESS_ALL_PANELS
+                || buffer[2] == ValloxBindingConstants.ADDRESS_PANEL1) {
+            sendTelegramToListeners(new Telegram(TelegramState.OK, buffer));
+        } else {
+            sendTelegramToListeners(new Telegram(TelegramState.NOT_FOR_US, buffer));
+        }
     }
-
 }

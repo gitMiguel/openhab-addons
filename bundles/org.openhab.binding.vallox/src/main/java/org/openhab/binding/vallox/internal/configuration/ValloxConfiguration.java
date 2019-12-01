@@ -13,19 +13,35 @@
 package org.openhab.binding.vallox.internal.configuration;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.openhab.binding.vallox.internal.ValloxBindingConstants;
 
 /**
- * Configuration class for Vallox binding.
+ * Configuration class for Vallox SE models.
  *
  * @author Miika Jukka - Initial contribution
  */
 @NonNullByDefault
 public class ValloxConfiguration {
+
     public String tcpHost = "";
     public int tcpPort;
     public String serialPort = "";
     public int panelNumber;
 
+    /**
+     * Get panel number as byte.
+     *
+     * @return byte the panel number as byte
+     */
+    public byte getPanelAsByte() {
+        return ValloxBindingConstants.ADDRESS_PANEL_MAPPING[panelNumber - 1];
+    }
+
+    /**
+     * Get configuration as string.
+     *
+     * @return
+     */
     @Override
     public String toString() {
         return "Host=" + tcpHost + ", Port=" + tcpPort + ", Serial port=" + serialPort + ", Panel number="

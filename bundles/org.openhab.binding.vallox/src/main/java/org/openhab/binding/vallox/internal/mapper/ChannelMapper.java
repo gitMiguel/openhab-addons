@@ -167,8 +167,12 @@ public class ChannelMapper {
     /**
      * Get variable as byte for channel
      */
+    @SuppressWarnings({ "null", "unused" })
     public static byte getVariable(String key) {
         ValloxChannel vc = getValloxChannel(key);
+        if (vc == null) {
+            return (byte) 0x00;
+        }
         return vc.getVariable();
     }
 

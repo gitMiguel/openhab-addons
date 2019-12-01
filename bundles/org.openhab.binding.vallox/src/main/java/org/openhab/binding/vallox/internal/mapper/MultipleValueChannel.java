@@ -15,8 +15,6 @@ package org.openhab.binding.vallox.internal.mapper;
 import java.util.Collection;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.smarthome.core.types.State;
-import org.eclipse.smarthome.core.types.UnDefType;
 
 /**
  * Class for channels holding boolean values.
@@ -26,20 +24,21 @@ import org.eclipse.smarthome.core.types.UnDefType;
 @NonNullByDefault
 public class MultipleValueChannel extends ValloxChannel {
 
-    private Collection<String> channelList;
+    private Collection<String> subChannels;
 
-    public MultipleValueChannel(byte variable, Collection<String> channelList) {
+    /**
+     * Create new instance.
+     *
+     * @param variable channel as byte
+     * @param channelList the list of sub channels
+     */
+    public MultipleValueChannel(byte variable, Collection<String> subChannels) {
         super(variable);
-        this.channelList = channelList;
+        this.subChannels = subChannels;
     }
 
     @Override
-    public Collection<String> getList() {
-        return channelList;
-    }
-
-    @Override
-    public State convertToState(Byte value) {
-        return UnDefType.UNDEF;
+    public Collection<String> getSubChannels() {
+        return subChannels;
     }
 }

@@ -24,6 +24,11 @@ import org.eclipse.smarthome.core.types.State;
 @NonNullByDefault
 public class StringChannel extends ValloxChannel {
 
+    /**
+     * Create new instance.
+     *
+     * @param variable channel as byte
+     */
     public StringChannel(byte variable) {
         super(variable);
     }

@@ -14,57 +14,57 @@ package org.openhab.binding.vallox.internal.connection;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.concurrent.ScheduledExecutorService;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.vallox.internal.ValloxBindingConstants;
 import org.openhab.binding.vallox.internal.configuration.ValloxConfiguration;
-import org.openhab.binding.vallox.internal.telegram.Converter;
 import org.openhab.binding.vallox.internal.telegram.Telegram;
 import org.openhab.binding.vallox.internal.telegram.Telegram.TelegramState;
+import org.openhab.binding.vallox.internal.telegram.TelegramFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The {@link ValloxIpConnection} is creates TCP/IP connection to Vallox.
+ * The {@link ValloxIpConnector} is creates TCP/IP connection to Vallox.
  *
  * @author Miika Jukka - Initial contribution
  */
 @NonNullByDefault
-public class ValloxIpConnection extends ValloxBaseConnection {
+public class ValloxIpConnector extends ValloxBaseConnector {
 
-    private final Logger logger = LoggerFactory.getLogger(ValloxIpConnection.class);
+    private final Logger logger = LoggerFactory.getLogger(ValloxIpConnector.class);
 
     protected @Nullable InputStream inputStream;
-    protected @Nullable OutputStream outputStream;
     private @Nullable Thread readerThread;
     private Socket socket = new Socket();
-    private int panelNumber;
 
-    public ValloxIpConnection() {
-        logger.debug("Connection created");
+    public ValloxIpConnector(ScheduledExecutorService scheduler) {
+        super(null, scheduler);
+        logger.debug("Tcp Connection initialized");
     }
 
     /**
      * Connect to socket
      */
+    @SuppressWarnings("null")
     @Override
     public void connect(ValloxConfiguration config) throws IOException {
         if (isConnected()) {
             return;
         }
-        panelNumber = config.panelNumber;
-
-        logger.debug("Connecting to {}:{}", config.tcpHost, config.tcpPort);
+        panelNumber = config.getPanelAsByte();
+        socket = new Socket();
         socket.setSoTimeout(ValloxBindingConstants.SOCKET_READ_TIMEOUT);
         socket.connect(new InetSocketAddress(config.tcpHost, config.tcpPort),
                 ValloxBindingConstants.CONNECTION_TIMEOUT);
+        socket.setSoTimeout(ValloxBindingConstants.SOCKET_READ_TIMEOUT);
         inputStream = socket.getInputStream();
         outputStream = socket.getOutputStream();
-        logger.debug("Connected");
+        logger.debug("Connected to {}:{}", config.tcpHost, config.tcpPort);
 
         readerThread = new TelegramReader();
         readerThread.start();
@@ -77,6 +77,7 @@ public class ValloxIpConnection extends ValloxBaseConnection {
     @SuppressWarnings("null")
     @Override
     public void close() {
+        super.close();
         if (readerThread != null) {
             logger.debug("Interrupt message listener");
             readerThread.interrupt();
@@ -97,32 +98,11 @@ public class ValloxIpConnection extends ValloxBaseConnection {
     }
 
     /**
-     * Write and flush telegram to output stream
-     */
-    @SuppressWarnings("null")
-    @Override
-    public synchronized void sendTelegram(Telegram telegram) {
-        if (outputStream != null) {
-            try {
-                outputStream.write(telegram.bytes);
-                outputStream.flush();
-                logger.debug("Wrote: {}", telegram.toString());
-                try {
-                    Thread.sleep(300);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            } catch (IOException e) {
-                sendErrorToListeners(e.getMessage());
-            }
-        }
-    }
-
-    /**
      * {@link Thread} implementation for reading telegrams
      *
      * @author Miika Jukka
      */
+    @SuppressWarnings("null")
     @NonNullByDefault
     private class TelegramReader extends Thread {
         boolean interrupted = false;
@@ -133,16 +113,11 @@ public class ValloxIpConnection extends ValloxBaseConnection {
             super.interrupt();
         }
 
-        @SuppressWarnings("null")
         @Override
         public void run() {
             logger.debug("Data listener started");
             while (!interrupted && inputStream != null) {
-                Telegram telegram;
                 try {
-                    if (inputStream.available() == 0) {
-                        telegram = new Telegram(TelegramState.EMPTY);
-                    }
                     int domain = inputStream.read();
                     if (domain != ValloxBindingConstants.DOMAIN) {
                         if (waitForAckByte) {
@@ -150,60 +125,46 @@ public class ValloxIpConnection extends ValloxBaseConnection {
                             waitForAckByte = false;
                             continue;
                         }
-                        telegram = new Telegram(TelegramState.NOT_DOMAIN);
-                        sendTelegramToListeners(telegram);
+                        sendTelegramToListeners(new Telegram(TelegramState.NOT_DOMAIN, (byte) domain));
                         continue;
                     }
                     int sender = inputStream.read();
                     int receiver = inputStream.read();
-                    int command = inputStream.read();
-                    int arg = inputStream.read();
+                    int variable = inputStream.read();
+                    int value = inputStream.read();
                     int checksum = inputStream.read();
-                    int computedChecksum = (domain + sender + receiver + command + arg) & 0x00ff;
 
-                    if (checksum != computedChecksum) {
-                        telegram = new Telegram(TelegramState.CRC_ERROR);
-                        sendTelegramToListeners(telegram);
+                    byte[] bytes = new byte[] { (byte) domain, (byte) sender, (byte) receiver, (byte) variable,
+                            (byte) value, (byte) checksum };
+
+                    if (!TelegramFactory.isChecksumValid(bytes, (byte) checksum)) {
+                        sendTelegramToListeners(new Telegram(TelegramState.CRC_ERROR, bytes));
                         continue;
                     }
-                    if (receiver == Converter.panelNumberToByte(panelNumber)
-                            || receiver == ValloxBindingConstants.ADDRESS_ALL_PANELS
+                    if (variable == ValloxBindingConstants.SUSPEND_BYTE) {
+                        sendTelegramToListeners(new Telegram(TelegramState.SUSPEND));
+                        suspendTraffic = true;
+                        continue;
+                    }
+                    if (variable == ValloxBindingConstants.RESUME_BYTE) {
+                        sendTelegramToListeners(new Telegram(TelegramState.RESUME));
+                        suspendTraffic = false;
+                        continue;
+                    }
+                    if (receiver == panelNumber || receiver == ValloxBindingConstants.ADDRESS_ALL_PANELS
                             || receiver == ValloxBindingConstants.ADDRESS_PANEL1) {
-                        byte[] bytes = new byte[6];
-                        bytes[0] = (byte) domain;
-                        telegram = new Telegram(TelegramState.OK, (byte) sender, (byte) receiver, (byte) command,
-                                (byte) arg, (byte) checksum);
-                        sendTelegramToListeners(telegram);
+                        sendTelegramToListeners(new Telegram(TelegramState.OK, bytes));
+                        continue;
+                    } else {
+                        sendTelegramToListeners(new Telegram(TelegramState.NOT_FOR_US, bytes));
                         continue;
                     }
-                    // telegram = new Telegram(TelegramState.NOT_FOR_US);
-                    // sendTelegramToListeners(telegram);
                 } catch (IOException e) {
-                    sendErrorToListeners(e.getMessage());
+                    sendErrorToListeners(e.getMessage(), e);
                     interrupt();
                 }
             }
             logger.debug("Telegram listener stopped");
-        }
-    }
-
-    /**
-     * Send command telegram and wait for acknowledge byte
-     */
-    @Override
-    public void sendCommand(Telegram telegram) {
-        waitForAckByte = true;
-        long timeout = System.currentTimeMillis() + 3000;
-        do {
-            sendTelegram(telegram);
-            if (ackByte != telegram.bytes[5]) {
-                waitForAckByte = false;
-            }
-        } while (waitForAckByte && timeout > System.currentTimeMillis());
-        if (!waitForAckByte) {
-            sendTelegramToListeners(new Telegram(TelegramState.ACK, ackByte));
-        } else {
-            sendErrorToListeners("Ack byte not received for telegram: " + telegram.toString());
         }
     }
 }
