@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2019 Contributors to the openHAB project
+ * Copyright (c) 2010-2020 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,24 +17,24 @@ import static org.openhab.binding.ipupdater.internal.IpUpdaterBindingConstants.*
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
@@ -73,18 +73,14 @@ public class DyfiClientHandler extends AbstractClientHandler {
 
     @Override
     public void ipv4Changed(Ipv4Address address) {
-        try {
-            logger.info("Updating dy.fi IPv4 DNS records...");
+        logger.info("Updating dy.fi IPv4 DNS records...");
+        CredentialsProvider provider = new BasicCredentialsProvider();
+        UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(config.getUsername(),
+                config.getPassword());
 
-            // Create client with credentials @formatter:off
-            CredentialsProvider provider = new BasicCredentialsProvider();
-            UsernamePasswordCredentials credentials
-                    = new UsernamePasswordCredentials(config.getUsername(), config.getPassword());
+        provider.setCredentials(AuthScope.ANY, credentials);
 
-            provider.setCredentials(AuthScope.ANY, credentials);
-            HttpClient client = HttpClientBuilder.create()
-                                .setDefaultCredentialsProvider(provider)
-                                .build();
+        try (CloseableHttpClient client = HttpClientBuilder.create().setDefaultCredentialsProvider(provider).build()) {
 
             URI uri = buildUri(config.getHostName());
             URI uri2 = buildUri(config.getHostName2());
@@ -92,7 +88,7 @@ public class DyfiClientHandler extends AbstractClientHandler {
             parseResponse(client.execute(new HttpGet(uri)), config.getHostName());
             parseResponse(client.execute(new HttpGet(uri2)), config.getHostName2());
 
-            updateState(CHANNEL_DYFI_LASTUPDATE, new DateTimeType(Calendar.getInstance()));
+            updateState(CHANNEL_DYFI_LASTUPDATE, new DateTimeType(ZonedDateTime.now()));
 
         } catch (Exception e) {
             logger.debug("Error updating dy.fi Ipv4 records", e);
@@ -101,19 +97,18 @@ public class DyfiClientHandler extends AbstractClientHandler {
 
     private URI buildUri(String hostname) throws URISyntaxException {
         URIBuilder builder = new URIBuilder();
-        builder.setScheme("https")
-               .setHost("www.dy.fi")
-               .setPath("/nic/update")
-               .setParameter("hostname", hostname);
+        builder.setScheme("https").setHost("www.dy.fi").setPath("/nic/update").setParameter("hostname", hostname);
         return builder.build();
-        // @formatter:on
     }
 
     @Override
     public void ipv6Changed(@Nullable Ipv6Address address) {
-        try {
-            logger.info("Updating dy.fi IPV6 DNS records...");
-            HttpClient client = HttpClients.createDefault();
+        if (address == null) {
+            logger.debug("Skipping dy.fi IPv6 update: Address is null");
+            return;
+        }
+        logger.info("Updating dy.fi IPv6 DNS records...");
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
             HttpPost post = new HttpPost("https://www.dy.fi");
 
             // Login
@@ -124,7 +119,7 @@ public class DyfiClientHandler extends AbstractClientHandler {
             loginParams.add(new BasicNameValuePair("submit", "login"));
             post.setEntity(new UrlEncodedFormEntity(loginParams, "UTF-8"));
             logger.trace("List contents: {}", loginParams);
-            HttpResponse loginResponse = client.execute(post);
+            CloseableHttpResponse loginResponse = client.execute(post);
             parseResponse(loginResponse, null);
 
             // Update first host
@@ -142,7 +137,7 @@ public class DyfiClientHandler extends AbstractClientHandler {
             updateFirst.add(new BasicNameValuePair("submit", "save"));
             post.setEntity(new UrlEncodedFormEntity(updateFirst, "UTF-8"));
             logger.trace("List contents: {}", updateFirst);
-            HttpResponse updateFirstResponse = client.execute(post);
+            CloseableHttpResponse updateFirstResponse = client.execute(post);
             parseResponse(updateFirstResponse, config.getTitle() + " " + config.getHostId());
 
             // Update second host
@@ -160,7 +155,7 @@ public class DyfiClientHandler extends AbstractClientHandler {
             updateSecond.add(new BasicNameValuePair("submit", "save"));
             post.setEntity(new UrlEncodedFormEntity(updateSecond, "UTF-8"));
             logger.trace("List contents: {}", updateSecond);
-            HttpResponse updateSecondResponse = client.execute(post);
+            CloseableHttpResponse updateSecondResponse = client.execute(post);
             parseResponse(updateSecondResponse, config.getTitle() + " " + config.getHostId2());
 
             // Logout
@@ -168,14 +163,14 @@ public class DyfiClientHandler extends AbstractClientHandler {
             logoutParams.add(new BasicNameValuePair("c", "logout"));
             post.setEntity(new UrlEncodedFormEntity(logoutParams, "UTF-8"));
             logger.trace("List contents: {}", logoutParams);
-            HttpResponse logoutResponse = client.execute(post);
+            CloseableHttpResponse logoutResponse = client.execute(post);
             parseResponse(logoutResponse, null);
         } catch (Exception e) {
             logger.debug("Error updating dy.fi Ipv6 records", e);
         }
     }
 
-    private void parseResponse(HttpResponse response, String logMessage) throws IOException {
+    private void parseResponse(CloseableHttpResponse response, String logMessage) throws IOException {
         String result = "Response: ";
         int responseCode = response.getStatusLine().getStatusCode();
         if (Integer.valueOf(responseCode).equals(HttpStatus.SC_OK)) {
@@ -194,13 +189,16 @@ public class DyfiClientHandler extends AbstractClientHandler {
                     String msg = " [ " + logMessage + " ] ";
                     result += msg;
                 }
+
             } else {
                 logger.debug("Http reponse entity was null");
             }
+            EntityUtils.consume(entity);
         } else {
             throw new IOException("Error while sending request: " + response.getStatusLine());
         }
         logger.debug(result);
+        response.close();
     }
 
     @Override

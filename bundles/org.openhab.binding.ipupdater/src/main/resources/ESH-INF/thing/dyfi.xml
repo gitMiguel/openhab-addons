@@ -1,79 +1,79 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <thing:thing-descriptions bindingId="ipupdater"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
-    xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
 
-    <thing-type id="dyfi">
-        <supported-bridge-type-refs>
-            <bridge-type-ref id="bridge" />
-        </supported-bridge-type-refs>
+	<thing-type id="dyfi">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge" />
+		</supported-bridge-type-refs>
 
-        <label>Dyfi client</label>
-        <description>This thing handles IP address updates to dy.fi service</description>  
+		<label>Dyfi client</label>
+		<description>This thing handles IP address updates to dy.fi service</description>
 
-        <channels>
-            <channel id="dyfiLastUpdated" typeId="dyfiLastUpdated" />
-            <channel id="dyfiForceUpdate" typeId="dyfiForceUpdate" />
-        </channels>
+		<channels>
+			<channel id="dyfiLastUpdate" typeId="dyfiLastUpdate" />
+			<channel id="dyfiForceUpdate" typeId="dyfiForceUpdate" />
+		</channels>
 
-        <config-description>
-            <parameter name="dyfiUsername" type="text">
-                <label>Username</label>
-                <description>email address</description>
-                <required>true</required>
-            </parameter>
-            
-            <parameter name="dyfiPassword" type="text">
-                <context>password</context>
-                <label>Password</label>
-                <description>Password</description>
-                <required>true</required>
-            </parameter>
-            
-            <parameter name="dyfiTitle" type="text">
-                <label>Title</label>
-                <description>Title/name of your fqdn</description>
-                <required>true</required>
-            </parameter>
-            
-            <parameter name="dyfiHostName" type="text">
-                <label>Hostname</label>
-                <description>Hostname #1 you want to update</description>
-                <required>true</required>
-            </parameter>
-            
-            <parameter name="dyfiHostId" type="text">
-                <label>HostId</label>
-                <description>Hostname #1 id number</description>
-                <required>true</required>
-            </parameter>
-            
-            <parameter name="dyfiHostName2" type="text">
-                <label>Hostname2</label>
-                <description>Hostname #2 you want to update</description>
-                <required>true</required>
-            </parameter>
-            
-            <parameter name="dyfiHostId2" type="text">
-                <label>HostId2 </label>
-                <description>Hostname #2 id number</description>
-                <required>true</required>
-            </parameter>
-         
-        </config-description>
-    </thing-type>
+		<config-description>
+			<parameter name="dyfiUsername" type="text">
+				<label>Username</label>
+				<description>email address</description>
+				<required>true</required>
+			</parameter>
 
-    <channel-type id="dyfiLastUpdated">
-        <item-type>DateTime</item-type>
-        <label>Last update</label>
-        <description>Shows when last successful update was performed</description>
-    </channel-type>
-    
-    <channel-type id="dyfiForceUpdate">
-        <item-type>Switch</item-type>
-        <label>Force update</label>
-        <description>Force an update to dy.fi service</description>
-    </channel-type>
+			<parameter name="dyfiPassword" type="text">
+				<context>password</context>
+				<label>Password</label>
+				<description>Password</description>
+				<required>true</required>
+			</parameter>
+
+			<parameter name="dyfiTitle" type="text">
+				<label>Title</label>
+				<description>Title/name of your fqdn</description>
+				<required>true</required>
+			</parameter>
+
+			<parameter name="dyfiHostName" type="text">
+				<label>Hostname</label>
+				<description>Hostname #1 you want to update</description>
+				<required>true</required>
+			</parameter>
+
+			<parameter name="dyfiHostId" type="text">
+				<label>HostId</label>
+				<description>Hostname #1 id number</description>
+				<required>true</required>
+			</parameter>
+
+			<parameter name="dyfiHostName2" type="text">
+				<label>Hostname2</label>
+				<description>Hostname #2 you want to update</description>
+				<required>true</required>
+			</parameter>
+
+			<parameter name="dyfiHostId2" type="text">
+				<label>HostId2 </label>
+				<description>Hostname #2 id number</description>
+				<required>true</required>
+			</parameter>
+
+		</config-description>
+	</thing-type>
+
+	<channel-type id="dyfiLastUpdate">
+		<item-type>DateTime</item-type>
+		<label>Last update</label>
+		<description>Shows when last successful update was performed</description>
+	</channel-type>
+
+	<channel-type id="dyfiForceUpdate">
+		<item-type>Switch</item-type>
+		<label>Force update</label>
+		<description>Force an update to dy.fi service</description>
+	</channel-type>
 
 </thing:thing-descriptions>

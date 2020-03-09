@@ -10,7 +10,7 @@
 		</supported-bridge-type-refs>
 
 		<label>Arkku.fi client</label>
-		<description>This thing handles IP address updates to http://www.arkku.fi server</description>	
+		<description>This thing handles IP address updates to http://www.arkku.fi server</description>
 
 		<channels>
 			<channel id="arkkuLastUpdate" typeId="arkkuLastUpdate" />
@@ -31,11 +31,11 @@
 		<label>Last update</label>
 		<description>Shows when last successful update was performed</description>
 	</channel-type>
-	
+
 	<channel-type id="arkkuForceUpdate">
-        <item-type>Switch</item-type>
-        <label>Force update</label>
-        <description>Force an update to Arkku.fi service</description>
-    </channel-type>
-	
+		<item-type>Switch</item-type>
+		<label>Force update</label>
+		<description>Force an update to Arkku.fi service</description>
+	</channel-type>
+
 </thing:thing-descriptions>

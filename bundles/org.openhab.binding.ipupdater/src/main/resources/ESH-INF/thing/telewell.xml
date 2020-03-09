@@ -1,56 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <thing:thing-descriptions bindingId="ipupdater"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
-    xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
 
-    <thing-type id="telewell">
-        <supported-bridge-type-refs>
-            <bridge-type-ref id="bridge" />
-        </supported-bridge-type-refs>
+	<thing-type id="telewell">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="bridge" />
+		</supported-bridge-type-refs>
 
-        <label>Telewell client</label>
-        <description>This thing handles IP address updates to Telewell router using telnet</description>  
+		<label>Telewell client</label>
+		<description>This thing handles IP address updates to Telewell router using telnet</description>
 
-        <channels>
-            <channel id="telewellLastUpdate" typeId="telewellLastUpdate" />
-            <channel id="telewellForceUpdate" typeId="telewellForceUpdate" />
-        </channels>
+		<channels>
+			<channel id="telewellLastUpdate" typeId="telewellLastUpdate" />
+			<channel id="telewellForceUpdate" typeId="telewellForceUpdate" />
+		</channels>
 
-        <config-description>
-            <parameter name="username" type="text">
-                <label>Username</label>
-                <description>Username</description>
-                <required>true</required>
-            </parameter>
-            
-            <parameter name="password" type="text">
-                <context>password</context>
-                <label>Password</label>
-                <description>Password</description>
-                <required>true</required>
-            </parameter>
-            
-            <parameter name="address" type="text">
-                <label>Address</label>
-                <description>Ip address</description>
-                <required>true</required>
-            </parameter>
-         
-        </config-description>
-    </thing-type>
+		<config-description>
+			<parameter name="username" type="text">
+				<label>Username</label>
+				<description>Username</description>
+				<required>true</required>
+			</parameter>
 
-    <channel-type id="telewellLastUpdate">
-        <item-type>DateTime</item-type>
-        <label>Last update</label>
-        <description>Shows when last successful update was performed</description>
-    </channel-type>
-    
-    <channel-type id="telewellForceUpdate">
-        <item-type>Switch</item-type>
-        <label>Force update</label>
-        <description>Force an update to telewell router</description>
-    </channel-type>
+			<parameter name="password" type="text">
+				<context>password</context>
+				<label>Password</label>
+				<description>Password</description>
+				<required>true</required>
+			</parameter>
 
-    
+			<parameter name="address" type="text">
+				<label>Address</label>
+				<description>Ip address</description>
+				<required>true</required>
+			</parameter>
+
+		</config-description>
+	</thing-type>
+
+	<channel-type id="telewellLastUpdate">
+		<item-type>DateTime</item-type>
+		<label>Last update</label>
+		<description>Shows when last successful update was performed</description>
+	</channel-type>
+
+	<channel-type id="telewellForceUpdate">
+		<item-type>Switch</item-type>
+		<label>Force update</label>
+		<description>Force an update to telewell router</description>
+	</channel-type>
+
+
 </thing:thing-descriptions>

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2019 Contributors to the openHAB project
+ * Copyright (c) 2010-2020 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -35,9 +35,6 @@ public class IpUpdaterBindingConstants {
     public static final String CHANNEL_BRIDGE_FORCEUPDATE = "bridgeForceUpdate";
     public static final String CHANNEL_IPV4ADDRESS = "ipv4address";
     public static final String CHANNEL_IPV6ADDRESS = "ipv6address";
-
-    // IpNumbers
-    public static final ThingTypeUID THING_TYPE_IPNUMBERS = new ThingTypeUID(BINDING_ID, "ipnumbers");
 
     // Dyfi
     public static final ThingTypeUID THING_TYPE_DYFI = new ThingTypeUID(BINDING_ID, "dyfi");

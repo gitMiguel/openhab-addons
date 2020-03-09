@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2019 Contributors to the openHAB project
+ * Copyright (c) 2010-2020 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -28,19 +28,13 @@ public class Ipv4Checker {
     public Ipv4Checker() {
     }
 
-    public static Ipv4Address getIpv4Address(String server) throws Exception {
-        String response = sendRequest(server);
+    public static Ipv4Address getIpv4Address(HttpClient client, String url) throws Exception {
+        ContentResponse getResponse = client.GET(url);
+        String response = getResponse.getContentAsString();
         if (!InetAddressUtils.isIPv4Address(response)) {
             throw new IllegalArgumentException("Address '" + response + "' is not valid");
         }
         return new Ipv4Address(response);
-    }
-
-    private static String sendRequest(String url) throws Exception {
-        HttpClient client = new HttpClient();
-        client.start();
-        ContentResponse response = client.GET(url);
-        return response.getContentAsString();
     }
 
     public Ipv4Address getAddress() {

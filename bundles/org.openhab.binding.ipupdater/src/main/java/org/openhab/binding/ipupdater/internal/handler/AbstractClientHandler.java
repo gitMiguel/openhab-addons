@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2019 Contributors to the openHAB project
+ * Copyright (c) 2010-2020 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -69,7 +69,7 @@ public abstract class AbstractClientHandler extends BaseThingHandler implements 
     }
 
     public boolean registerListener() {
-        if (bridge != null) {
+        if (this.bridge != null) {
             BridgeListener listener = (BridgeListener) this.bridge.getHandler();
             if (listener != null) {
                 listener.registerIpStatusListener(this);

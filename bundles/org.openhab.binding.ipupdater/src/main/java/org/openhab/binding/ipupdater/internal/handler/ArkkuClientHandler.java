@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2019 Contributors to the openHAB project
+ * Copyright (c) 2010-2020 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,16 +14,16 @@ package org.openhab.binding.ipupdater.internal.handler;
 
 import static org.openhab.binding.ipupdater.internal.IpUpdaterBindingConstants.*;
 
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
@@ -60,17 +60,13 @@ public class ArkkuClientHandler extends AbstractClientHandler {
     @Override
     public void updateConfig() {
         // TODO Auto-generated method stub
-
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public void ipv4Changed(@Nullable Ipv4Address address) {
-        try {
-            logger.debug("Updating ip address to arkku.net...");
+        logger.debug("Updating ip address to arkku.net...");
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
 
-            // Create client
-            HttpClient client = HttpClients.createDefault();
             HttpPost post = new HttpPost("https://www.arkku.net/api/whitelist-ip");
 
             // Request parameters
@@ -79,13 +75,15 @@ public class ArkkuClientHandler extends AbstractClientHandler {
             post.setEntity(new UrlEncodedFormEntity(params, "UTF-8"));
 
             // Execute and get the response.
-            HttpResponse response = client.execute(post);
+            CloseableHttpResponse response = client.execute(post);
             HttpEntity entity = response.getEntity();
+
             if (entity != null) {
                 String content = EntityUtils.toString(entity);
                 logger.info("Result: {}", content);
             }
-            updateState(CHANNEL_ARKKU_LASTUPDATE, new DateTimeType(Calendar.getInstance()));
+            EntityUtils.consume(entity);
+            updateState(CHANNEL_ARKKU_LASTUPDATE, new DateTimeType(ZonedDateTime.now()));
 
         } catch (Exception e) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,

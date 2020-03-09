@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2019 Contributors to the openHAB project
+ * Copyright (c) 2010-2020 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,7 +17,7 @@ import static org.openhab.binding.ipupdater.internal.IpUpdaterBindingConstants.*
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.util.Calendar;
+import java.time.ZonedDateTime;
 
 import org.apache.commons.net.telnet.TelnetClient;
 import org.eclipse.jdt.annotation.Nullable;
@@ -83,7 +83,7 @@ public class TelewellClientHandler extends AbstractClientHandler {
             // Send commands
             sendCommands();
 
-            updateState(CHANNEL_TELEWELL_LASTUPDATE, new DateTimeType(Calendar.getInstance()));
+            updateState(CHANNEL_TELEWELL_LASTUPDATE, new DateTimeType(ZonedDateTime.now()));
         } catch (Exception e) {
             logger.debug("Exception while communicating: ", e);
         } finally {

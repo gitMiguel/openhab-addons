@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<thing:thing-descriptions bindingId="ipupdater" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<thing:thing-descriptions bindingId="ipupdater"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
 	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
 
@@ -7,12 +8,12 @@
 	<bridge-type id="bridge">
 		<label>IpUpdater Bridge</label>
 		<description>The IpUpdater bridge is responsible for checking current IP addresses and notify child things.</description>
-		
+
 		<channels>
-            <channel id="bridgeForceUpdate" typeId="bridgeForceUpdate" />
-            <channel id="ipv4address" typeId="ipv4address" />
-            <channel id="ipv6address" typeId="ipv6address" />
-        </channels>
+			<channel id="bridgeForceUpdate" typeId="bridgeForceUpdate" />
+			<channel id="ipv4address" typeId="ipv4address" />
+			<channel id="ipv6address" typeId="ipv6address" />
+		</channels>
 
 		<config-description>
 			<parameter name="ipv4server" type="text">
@@ -41,23 +42,23 @@
 			</parameter>
 		</config-description>
 	</bridge-type>
-	
-	<channel-type id="bridgeForceUpdate">
-        <item-type>Switch</item-type>
-        <label>Force update</label>
-        <description>Force an update to be sent to child things</description>
-    </channel-type>
-    
-    <channel-type id="ipv4address">
-        <item-type>String</item-type>
-        <label>Ipv4 address</label>
-        <description>Current Ipv4 address</description>
-    </channel-type>
 
-    <channel-type id="ipv6address">
-        <item-type>String</item-type>
-        <label>Ipv6 address</label>
-        <description>Current Ipv6 address</description>
-    </channel-type>
+	<channel-type id="bridgeForceUpdate">
+		<item-type>Switch</item-type>
+		<label>Force update</label>
+		<description>Force an update to be sent to child things</description>
+	</channel-type>
+
+	<channel-type id="ipv4address">
+		<item-type>String</item-type>
+		<label>Ipv4 address</label>
+		<description>Current Ipv4 address</description>
+	</channel-type>
+
+	<channel-type id="ipv6address">
+		<item-type>String</item-type>
+		<label>Ipv6 address</label>
+		<description>Current Ipv6 address</description>
+	</channel-type>
 
 </thing:thing-descriptions>

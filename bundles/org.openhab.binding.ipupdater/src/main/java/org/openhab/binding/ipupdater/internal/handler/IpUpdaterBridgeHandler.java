@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2019 Contributors to the openHAB project
+ * Copyright (c) 2010-2020 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.library.types.StringType;
 import org.eclipse.smarthome.core.thing.Bridge;
@@ -51,13 +52,15 @@ public class IpUpdaterBridgeHandler extends BaseBridgeHandler implements BridgeL
     private BridgeConfig bridgeConfig;
     @Nullable
     private ScheduledFuture<?> pollingJob;
+    private HttpClient httpClient;
 
     private long lastUpdated = 0;
     private long maxUpdateInterval = TimeUnit.DAYS.toMillis(6);
 
-    public IpUpdaterBridgeHandler(Bridge bridge) {
+    public IpUpdaterBridgeHandler(Bridge bridge, HttpClient httpClient) {
         super(bridge);
         bridgeConfig = getConfigAs(BridgeConfig.class);
+        this.httpClient = httpClient;
     }
 
     @Override
@@ -91,7 +94,7 @@ public class IpUpdaterBridgeHandler extends BaseBridgeHandler implements BridgeL
         public void run() {
             Ipv4Address ipv4address = null;
             try {
-                ipv4address = Ipv4Checker.getIpv4Address(bridgeConfig.getIpv4server());
+                ipv4address = Ipv4Checker.getIpv4Address(httpClient, bridgeConfig.getIpv4server());
                 if ((ipv4address.compareTo(currentIpv4Address) > 0) || (maxUpdateIntervalReached())) {
                     for (IpStatusListener listener : listeners) {
                         listener.ipv4Changed(ipv4address);
@@ -107,7 +110,7 @@ public class IpUpdaterBridgeHandler extends BaseBridgeHandler implements BridgeL
             if (bridgeConfig.isIpv6enabled()) {
                 Ipv6Address ipv6address;
                 try {
-                    ipv6address = Ipv6Checker.getIpv6Address(bridgeConfig.getIpv6server());
+                    ipv6address = Ipv6Checker.getIpv6Address(httpClient, bridgeConfig.getIpv6server());
                     if (ipv6address.compareTo(currentIpv6Address) > 0) {
                         for (IpStatusListener listener : listeners) {
                             listener.ipv6Changed(ipv6address);
