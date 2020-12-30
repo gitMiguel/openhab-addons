@@ -141,6 +141,7 @@ public abstract class ValloxBaseConnector implements ValloxConnector {
      */
     @Override
     public void close() {
+    	connected = false;
         stopProcessorJobs();
     }
 
@@ -158,7 +159,7 @@ public abstract class ValloxBaseConnector implements ValloxConnector {
      *
      * @param error the error to send
      */
-    public void sendErrorToListeners(@Nullable String error, @Nullable Exception exception) {
+    public void sendErrorToListeners(String error, @Nullable Exception exception) {
         listeners.forEach(listener -> listener.errorOccurred(error, exception));
     }
 
