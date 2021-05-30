@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2020 Contributors to the openHAB project
+ * Copyright (c) 2010-2021 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,10 +16,10 @@ import static org.openhab.binding.vallox.internal.se.ValloxSEConstants.*;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.TooManyListenersException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.commons.io.IOUtils;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.vallox.internal.se.configuration.ValloxSEConfiguration;
@@ -45,7 +45,7 @@ public class ValloxSerialConnector extends ValloxBaseConnector implements Serial
 
     private AtomicReference<@Nullable SerialPort> serialPortReference = new AtomicReference<>();
     private final SerialPortManager serialPortManager;
-    //private @Nullable SerialPort serialPort;
+    // private @Nullable SerialPort serialPort;
     private final Object portLock = new Object();
 
     public ValloxSerialConnector(SerialPortManager serialPortManager) {
@@ -53,87 +53,89 @@ public class ValloxSerialConnector extends ValloxBaseConnector implements Serial
         logger.debug("Serial connector initialized");
     }
 
-	@Override
-	public void connect(ValloxSEConfiguration config) throws IOException {
-		synchronized (portLock) {
-			try {
-				logger.debug("Connecting to {}", config.serialPort);
-				SerialPortIdentifier portIdentifier = serialPortManager.getIdentifier(config.serialPort);
-				if (portIdentifier == null) {
-					throw new IOException("No such port " + config.serialPort);
-				}
-				SerialPort oldSerialPort = serialPortReference.get();
-				SerialPort serialPort = portIdentifier.open("vallox", SERIAL_PORT_READ_TIMEOUT);
-				serialPort.setSerialPortParams(SERIAL_BAUDRATE, SerialPort.DATABITS_8, SerialPort.STOPBITS_1,
-						SerialPort.PARITY_NONE);
+    @Override
+    public void connect(ValloxSEConfiguration config) throws IOException {
+        synchronized (portLock) {
+            try {
+                logger.debug("Connecting to {}", config.serialPort);
+                SerialPortIdentifier portIdentifier = serialPortManager.getIdentifier(config.serialPort);
+                if (portIdentifier == null) {
+                    throw new IOException("No such port " + config.serialPort);
+                }
+                SerialPort oldSerialPort = serialPortReference.get();
+                SerialPort serialPort = portIdentifier.open("vallox", SERIAL_PORT_READ_TIMEOUT);
+                serialPort.setSerialPortParams(SERIAL_BAUDRATE, SerialPort.DATABITS_8, SerialPort.STOPBITS_1,
+                        SerialPort.PARITY_NONE);
 
-				inputStream = serialPort.getInputStream();
-				outputStream = serialPort.getOutputStream();
-				panelNumber = config.getPanelAsByte();
-				connected = true;
+                inputStream = serialPort.getInputStream();
+                outputStream = serialPort.getOutputStream();
+                panelNumber = config.getPanelAsByte();
+                connected = true;
 
-				serialPort.addEventListener(this);
+                serialPort.addEventListener(this);
 
-				serialPort.notifyOnDataAvailable(true);
-				serialPort.notifyOnBreakInterrupt(true);
-				serialPort.notifyOnFramingError(true);
-				serialPort.notifyOnOverrunError(true);
-				serialPort.notifyOnParityError(true);
+                serialPort.notifyOnDataAvailable(true);
+                serialPort.notifyOnBreakInterrupt(true);
+                serialPort.notifyOnFramingError(true);
+                serialPort.notifyOnOverrunError(true);
+                serialPort.notifyOnParityError(true);
 
-				serialPort.enableReceiveThreshold(SERIAL_RECEIVE_THRESHOLD_BYTES);
-				serialPort.enableReceiveTimeout(SERIAL_RECEIVE_TIMEOUT_MILLISECONDS);
+                serialPort.enableReceiveThreshold(SERIAL_RECEIVE_THRESHOLD_BYTES);
+                serialPort.enableReceiveTimeout(SERIAL_RECEIVE_TIMEOUT_MILLISECONDS);
 
-				logger.debug("Connected to {}", config.serialPort);
+                logger.debug("Connected to {}", config.serialPort);
 
-				if (!serialPortReference.compareAndSet(oldSerialPort, serialPort)) {
-	                logger.warn("Possible bug because a new serial port value was set during opening new port");
-	                throw new IOException("");
-				}
-				startProcessorJobs();
-			} catch (TooManyListenersException e) {
-				throw new IOException("Too many listeners", e);
-			} catch (PortInUseException e) {
-				throw new IOException("Port in use", e);
-			} catch (UnsupportedCommOperationException e) {
-				throw new IOException("Unsupported comm operation", e);
-			}
-		}
-	}
+                if (!serialPortReference.compareAndSet(oldSerialPort, serialPort)) {
+                    logger.warn("Possible bug because a new serial port value was set during opening new port");
+                    throw new IOException("");
+                }
+                startProcessorJobs();
+            } catch (TooManyListenersException e) {
+                throw new IOException("Too many listeners", e);
+            } catch (PortInUseException e) {
+                throw new IOException("Port in use", e);
+            } catch (UnsupportedCommOperationException e) {
+                throw new IOException("Unsupported comm operation", e);
+            }
+        }
+    }
 
-	/**
-	 * Closes the serial port.
-	 */
-	@Override
-	public void close() {
-		synchronized (portLock) {
-			super.close();
-			SerialPort serialPort = serialPortReference.get();
-			if (serialPort != null) {
-				serialPort.removeEventListener();
-				
-				// Close inputstream
-				try {
-					getInputStream().close();
-				} catch (IOException e) {
-					logger.debug("Failed to close serial port inputstream", e);
-				} finally {
-					IOUtils.closeQuietly(getInputStream());
-				}
-				
-				// Close outputstream
-				try {
-					getOutputStream().close();
-				} catch (IOException e) {
-					logger.debug("Failed to close serial port outputstream", e);
-				} finally {
-					IOUtils.closeQuietly(getOutputStream());
-				}
-				serialPort.close();
-			}
-			serialPort = null;
-			logger.debug("Serial connection closed");
-		}
-	}
+    /**
+     * Closes the serial port.
+     */
+    @Override
+    public void close() {
+        synchronized (portLock) {
+            super.close();
+            SerialPort serialPort = serialPortReference.get();
+            if (serialPort != null) {
+                serialPort.removeEventListener();
+
+                // Close inputstream
+                try {
+                    InputStream is = getInputStream();
+                    if (is != null) {
+                        is.close();
+                    }
+                } catch (IOException e) {
+                    logger.debug("Failed to close serial port inputstream", e);
+                }
+
+                // Close outputstream
+                try {
+                    OutputStream os = getOutputStream();
+                    if (os != null) {
+                        os.close();
+                    }
+                } catch (IOException e) {
+                    logger.debug("Failed to close serial port outputstream", e);
+                }
+                serialPort.close();
+            }
+            serialPort = null;
+            logger.debug("Serial connection closed");
+        }
+    }
 
     @Override
     public void serialEvent(@Nullable SerialPortEvent seEvent) {

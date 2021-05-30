@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2020 Contributors to the openHAB project
+ * Copyright (c) 2010-2021 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -114,7 +114,7 @@ public class ValloxIpConnector extends ValloxBaseConnector {
                 logger.trace("End of input stream reached");
                 break;
             } catch (IOException e) {
-                sendErrorToListeners(e.getMessage(), e);
+                sendErrorToListeners(e.toString(), e);
                 break;
             } catch (IllegalStateException e) {
                 logger.debug("Read buffer full. Cleaning.");
